@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import type { AuthSession } from "@themixmatch/types";
-import { authStorage } from "./auth-storage";
+import { loadAuthSession, saveAuthSession, clearAuthSession } from "./auth-storage";
 import { isSessionExpired } from "./auth-session";
 
 interface AuthContextValue {
@@ -33,23 +33,24 @@ export function AuthProvider({
   const [session, setSession] = useState<AuthSession | null>(null);
 
   useEffect(() => {
-    const stored = authStorage.loadSession();
-    if (stored && !isSessionExpired(stored)) {
-      setSession(stored);
-      return;
-    }
+    loadAuthSession().then((stored) => {
+      if (stored && !isSessionExpired(stored)) {
+        setSession(stored);
+        return;
+      }
 
-    authStorage.clearSession();
-    setSession(null);
+      clearAuthSession();
+      setSession(null);
+    });
   }, []);
 
   const signIn = useCallback((authSession: AuthSession) => {
-    authStorage.saveSession(authSession);
+    saveAuthSession(authSession);
     setSession(authSession);
   }, []);
 
   const signOut = useCallback(() => {
-    authStorage.clearSession();
+    clearAuthSession();
     setSession(null);
   }, []);
 

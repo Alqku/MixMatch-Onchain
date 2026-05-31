@@ -1,42 +1,39 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { login } from "@/auth/auth-client";
-import { type LoginRequest } from "@themixmatch/types";
+import { useState, type FormEvent } from "react";
 import { useAuth } from "@/auth/auth-context";
+import { login } from "@/auth/auth-client";
+import { AuthClientError } from "@/auth/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setLoading(true);
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password || submitting) return;
+    setSubmitting(true);
     setError(null);
 
-    const payload: LoginRequest = {
-      email,
-      password,
-    };
-
     try {
-      const response = await login(payload);
-      if (!response.success) {
-        setError(response.message ?? "Invalid credentials.");
-        return;
-      }
-
-      signIn(response.data);
+      const session = await login({ email: email.trim(), password });
+      signIn(session);
       router.push("/dashboard");
-    } catch {
-      setError("Unable to sign in. Please try again.");
+    } catch (caught) {
+      setError(
+        caught instanceof AuthClientError
+          ? caught.message
+          : caught instanceof Error
+            ? caught.message
+            : "Sign in failed",
+      );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -55,9 +52,9 @@ export default function LoginPage() {
               id="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={loading}
+              disabled={submitting}
             />
           </div>
 
@@ -67,17 +64,17 @@ export default function LoginPage() {
               id="password"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={loading}
+              disabled={submitting}
               minLength={8}
             />
           </div>
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+          <button type="submit" disabled={submitting || !email.trim() || !password}>
+            {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
       </section>
